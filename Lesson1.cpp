@@ -7,6 +7,7 @@
 #include <optional>
 #include <cassert>
 #include <algorithm>
+#include <any>
 
 using namespace std;
 
@@ -21,15 +22,21 @@ struct Person
 
 bool operator<(const Person& p1, const Person& p2)
 {
-    return tie(p1.name, p1.surname, p1.patronym.value()) < tie(p2.name, p2.surname, p2.patronym.value());
+    if (p1.patronym && p2.patronym) // только когда у обоих есть отчества иммет смысл их (отчества) сравнить
+        return tie(p1.name, p1.surname, p1.patronym.value()) < tie(p2.name, p2.surname, p2.patronym.value());
+    else
+        return tie(p1.name, p1.surname) < tie(p2.name, p2.surname);
 }
 bool operator==(const Person& p1, const Person& p2)
 {
-    return tie(p1.name, p1.surname, p1.patronym.value()) == tie(p2.name, p2.surname, p2.patronym.value());
-}
+    if (p1.patronym && p2.patronym)
+        return tie(p1.name, p1.surname, p1.patronym.value()) == tie(p2.name, p2.surname, p2.patronym.value());
+    else
+        return tie(p1.name, p1.surname) == tie(p2.name, p2.surname);
+ }
 ostream& operator<< (ostream& out, const Person& p)
 {
-    out << p.surname << "   " << p.name << "   " << p.patronym.value_or("") << endl; // исправить!
+    out << p.surname << "   " << p.name << "   " << p.patronym.value_or("") << endl;
     return out;
 }
 
@@ -44,15 +51,32 @@ struct PhoneNumber
 
 bool operator<(const PhoneNumber& n1, const PhoneNumber& n2)
 {
-    return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) < tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
+    if (n1.addNumber && n2.addNumber) // только когда у обоих есть доб. номера иммет смысл их (доб. номера) сравнить
+        return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) < tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
+    else
+        return tie(n1.countryCode, n1.cityCode, n1.number) < tie(n2.countryCode, n2.cityCode, n2.number);
+    
+    //return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) < tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
 }
 bool operator==(const PhoneNumber& n1, const PhoneNumber& n2)
 {
-    return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) == tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
+    if (n1.addNumber && n2.addNumber) 
+        return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) == tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
+    else
+        return tie(n1.countryCode, n1.cityCode, n1.number) == tie(n2.countryCode, n2.cityCode, n2.number);
+    
+    
+    //return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) == tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
 }
 ostream& operator<< (ostream& out, const PhoneNumber& n)
 {
-    out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << n.addNumber.value_or(stoi("")) << endl; // исправить!
+    if (n.addNumber) 
+        out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << n.addNumber.value() << endl;
+    else
+        out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << endl;
+    
+    
+    //out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << n.addNumber.value_or(stoi("")) << endl; // исправить!
     return out;
 }
 
@@ -67,6 +91,7 @@ public:
         //assert(file);
         if (file.is_open())
         {
+            cout << "Opened file!" << endl;
             string fName; // "f" for "file"
             string fSurname;
             string fPatronym;
@@ -80,20 +105,28 @@ public:
         {
             file >> fSurname >> fName >> fPatronym >> fCountryCode >> fCityCode >> fNumber >> fAddNumber;
             
+            if (fPatronym == "-")
+                fPatronym = "";
+
+            /*
             optional <string> patr;
             if (fPatronym != "-")
                 patr = fPatronym;
-
+            
             optional <int> add;
             if (fAddNumber != "-")
                 add = stoi(fAddNumber);
 
             phonePairs.emplace_back(Person{ fSurname, fName, patr.value() }, PhoneNumber{ fCountryCode, fCityCode, fNumber, add.value() });
+            */
+            phonePairs.emplace_back(Person{ fName, fSurname, fPatronym }, PhoneNumber{ fCountryCode, fCityCode, fNumber, stoi(fAddNumber) });
         }
         file.close();
         }
     }
 
+    // Вот так он не принимает
+    /*
     ostream& operator<< (ostream& out)
     {
         for (const auto& phonePair : phonePairs)
@@ -102,10 +135,38 @@ public:
         }
         return out;
     }
+    */
 
+    // А вот так (через дружественную) принимает, почему? я же в теле класса, какая ему разница?
+    friend ostream& operator<< (ostream& out, const PhoneBook& book)
+    {
+        for (int i{ 0 }; i < book.phonePairs.size(); ++i)
+        {
+            out << book.phonePairs[i].first << "   " << book.phonePairs[i].second << endl;
+        }
+    return out;
+    }
+
+    bool compPer(vector<pair <Person, PhoneNumber>>& p1, vector<pair <Person, PhoneNumber>>& p2)
+    {
+        if (p1[0].first == p2[0].first)
+        {
+            if (p1[1].first == p2[1].first)
+            {
+                return p1[2].first < p2[2].first;
+            }
+            else
+                return (p1[1].first < p2[1].first);
+        }
+        else
+            return (p1[0].first < p2[0].first);
+
+    }
 
     void SortByName()
     {
+        sort(phonePairs.begin(), phonePairs.end());
+        /*
         cout << "Before sorting: " << endl;
         for (const auto& phonePair : phonePairs)
         {
@@ -119,15 +180,33 @@ public:
             cout << phonePair.first << "   " << phonePair.second << endl;
         }
         cout << "--------------------------------------------------------------" << endl;
+        */
+
         cout << endl;
     }
     
     
-    void SortByPhone();
+    void SortByPhone()
+    {
+        sort(phonePairs.begin(), phonePairs.end());
+        /*
+        cout << "Before sorting: " << endl;
+        for (const auto& phonePair : phonePairs)
+        {
+            cout << phonePair.first << "   " << phonePair.second << endl;
+        }
+        cout << endl;
+        sort(phonePairs.begin(), phonePairs.end());
+        cout << "After sorting: " << endl;
+        for (const auto& phonePair : phonePairs)
+        {
+            cout << phonePair.first << "   " << phonePair.second << endl;
+        }
+        cout << "--------------------------------------------------------------" << endl;
+        */
+        cout << endl;
+    }
 
-    // не понял как это сделать так, чтобы строка при этом была опциональной... или номер был опциональным, поэтому решил как решил
-    // upd: оказалось я использовал старую версию плюсов (14), а я подумал, что неправильно применяю optional -_-
-    // мб исправлю, но если будет работать, то не исправлю))
     tuple < string, PhoneNumber> GetPhoneNumber(const string& searchSurname)
     {
         PhoneNumber foundPair; // если найдем человека, то номер на время поместим его сюда
@@ -138,7 +217,6 @@ public:
             {
                 pairCount++;
                 foundPair = phonePair.second;
-                //return { "", phonePair.second };
             }
         }
 
@@ -198,7 +276,7 @@ int main()
     // Task 3 ============================================================================
     {
         cout << "Task 3 ======================================================================" << endl;
-        /*
+        
         ifstream file("PhoneBook.txt"); // путь к файлу PhoneBook.txt
         PhoneBook book(file);
         cout << book;
@@ -231,7 +309,7 @@ int main()
         book.ChangePhoneNumber(Person{ "Kotov", "Vasilii", "Eliseevich" }, PhoneNumber{ 7, 123, "15344458", nullopt });
         book.ChangePhoneNumber(Person{ "Mironova", "Margarita", "Vladimirovna" }, PhoneNumber{ 16, 465, "9155448", 13 });
         cout << book;
-        */
+        
 
         cout << endl;
     }
