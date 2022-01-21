@@ -8,35 +8,45 @@
 #include <cassert>
 #include <algorithm>
 #include <any>
+#include <iomanip>
 
 using namespace std;
 
+// Проблемы, которые я так и не решил:
+// 1) в текстовом документе пришлось идти на "допущения" и там, где нет отчества и доб. номера ставить прочерки "-"
+// 2) не разобрался как работает optional, в примерах всё просто, а у меня отладчик местами ругается на .value()
+// 2.1) как следствие предыдущего пункта - устроил порнографию с if-else, чем не горжусь
+
+// Задание было очень интересное и очень сложное, спасибо, выздаравливайте =)
 
 // For task 1 ============================================================================
 struct Person
 {
-    string name;
     string surname;
-    optional <string> patronym; // отчество (optional)
+    string name;
+    optional <string> patronym;
 };
 
 bool operator<(const Person& p1, const Person& p2)
 {
     if (p1.patronym && p2.patronym) // только когда у обоих есть отчества иммет смысл их (отчества) сравнить
-        return tie(p1.name, p1.surname, p1.patronym.value()) < tie(p2.name, p2.surname, p2.patronym.value());
+        return tie(p1.surname, p1.name, p1.patronym.value()) < tie(p2.surname, p2.name, p2.patronym.value());
     else
-        return tie(p1.name, p1.surname) < tie(p2.name, p2.surname);
+        return tie(p1.surname, p1.name) < tie(p2.surname, p2.name);
 }
 bool operator==(const Person& p1, const Person& p2)
 {
     if (p1.patronym && p2.patronym)
-        return tie(p1.name, p1.surname, p1.patronym.value()) == tie(p2.name, p2.surname, p2.patronym.value());
+        return tie(p1.surname, p1.name, p1.patronym.value()) == tie(p2.surname, p2.name, p2.patronym.value());
     else
-        return tie(p1.name, p1.surname) == tie(p2.name, p2.surname);
+        return tie(p1.surname, p1.name) == tie(p2.surname, p2.name);
  }
 ostream& operator<< (ostream& out, const Person& p)
 {
-    out << p.surname << "   " << p.name << "   " << p.patronym.value_or("") << endl;
+    if (p.patronym)
+        out << setw(14) << p.surname << setw(12) << p.name << setw(17) << p.patronym.value();
+    else
+        out << setw(14) << p.surname << setw(12) << p.name << setw(21);
     return out;
 }
 
@@ -46,7 +56,7 @@ struct PhoneNumber
     int countryCode;
     int cityCode;
     string number;
-    optional <int> addNumber; // additional number (optional)
+    optional <int> addNumber;
 };
 
 bool operator<(const PhoneNumber& n1, const PhoneNumber& n2)
@@ -55,8 +65,6 @@ bool operator<(const PhoneNumber& n1, const PhoneNumber& n2)
         return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) < tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
     else
         return tie(n1.countryCode, n1.cityCode, n1.number) < tie(n2.countryCode, n2.cityCode, n2.number);
-    
-    //return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) < tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
 }
 bool operator==(const PhoneNumber& n1, const PhoneNumber& n2)
 {
@@ -64,19 +72,13 @@ bool operator==(const PhoneNumber& n1, const PhoneNumber& n2)
         return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) == tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
     else
         return tie(n1.countryCode, n1.cityCode, n1.number) == tie(n2.countryCode, n2.cityCode, n2.number);
-    
-    
-    //return tie(n1.countryCode, n1.cityCode, n1.number, n1.addNumber.value()) == tie(n2.countryCode, n2.cityCode, n2.number, n1.addNumber.value());
-}
+ }
 ostream& operator<< (ostream& out, const PhoneNumber& n)
 {
     if (n.addNumber) 
-        out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << n.addNumber.value() << endl;
+        out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << n.addNumber.value();
     else
-        out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << endl;
-    
-    
-    //out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " " << n.addNumber.value_or(stoi("")) << endl; // исправить!
+        out << "+" << n.countryCode << "(" << n.cityCode << ")" << n.number << " ";
     return out;
 }
 
@@ -91,8 +93,7 @@ public:
         //assert(file);
         if (file.is_open())
         {
-            cout << "Opened file!" << endl;
-            string fName; // "f" for "file"
+            string fName;
             string fSurname;
             string fPatronym;
 
@@ -106,8 +107,22 @@ public:
             file >> fSurname >> fName >> fPatronym >> fCountryCode >> fCityCode >> fNumber >> fAddNumber;
             
             if (fPatronym == "-")
-                fPatronym = "";
-
+            {
+                if (fAddNumber == "-")
+                    phonePairs.emplace_back(Person{ fSurname, fName }, PhoneNumber{ fCountryCode, fCityCode, fNumber });
+                else
+                    phonePairs.emplace_back(Person{ fSurname, fName }, PhoneNumber{ fCountryCode, fCityCode, fNumber, stoi(fAddNumber) });
+            }
+            else
+            {
+                if (fAddNumber == "-")
+                    phonePairs.emplace_back(Person{ fSurname, fName, fPatronym }, PhoneNumber{ fCountryCode, fCityCode, fNumber });
+                else
+                    phonePairs.emplace_back(Person{ fSurname, fName, fPatronym }, PhoneNumber{ fCountryCode, fCityCode, fNumber, stoi(fAddNumber) });
+            }
+            
+            // так, как вы писали в телеграме не сработало, отладчик ругается на .value()
+            // скорее всего я допустил ошибку, но не понимаю какую
             /*
             optional <string> patr;
             if (fPatronym != "-")
@@ -119,13 +134,13 @@ public:
 
             phonePairs.emplace_back(Person{ fSurname, fName, patr.value() }, PhoneNumber{ fCountryCode, fCityCode, fNumber, add.value() });
             */
-            phonePairs.emplace_back(Person{ fName, fSurname, fPatronym }, PhoneNumber{ fCountryCode, fCityCode, fNumber, stoi(fAddNumber) });
+            
         }
         file.close();
         }
     }
 
-    // Вот так он не принимает
+    // Вот так компилятор не принимает:
     /*
     ostream& operator<< (ostream& out)
     {
@@ -137,79 +152,35 @@ public:
     }
     */
 
-    // А вот так (через дружественную) принимает, почему? я же в теле класса, какая ему разница?
+    // А вот так (через дружественную) принимает, почему? 
     friend ostream& operator<< (ostream& out, const PhoneBook& book)
     {
         for (int i{ 0 }; i < book.phonePairs.size(); ++i)
         {
-            out << book.phonePairs[i].first << "   " << book.phonePairs[i].second << endl;
+            out << book.phonePairs[i].first << "    " << book.phonePairs[i].second << endl;
         }
     return out;
     }
 
-    bool compPer(vector<pair <Person, PhoneNumber>>& p1, vector<pair <Person, PhoneNumber>>& p2)
-    {
-        if (p1[0].first == p2[0].first)
-        {
-            if (p1[1].first == p2[1].first)
-            {
-                return p1[2].first < p2[2].first;
-            }
-            else
-                return (p1[1].first < p2[1].first);
-        }
-        else
-            return (p1[0].first < p2[0].first);
-
-    }
-
     void SortByName()
     {
-        sort(phonePairs.begin(), phonePairs.end());
-        /*
-        cout << "Before sorting: " << endl;
-        for (const auto& phonePair : phonePairs)
-        {
-            cout << phonePair.first << "   " << phonePair.second << endl;
-        }
-        cout << endl;
-        sort(phonePairs.begin(), phonePairs.end());
-        cout << "After sorting: " << endl;
-        for (const auto& phonePair : phonePairs)
-        {
-            cout << phonePair.first << "   " << phonePair.second << endl;
-        }
-        cout << "--------------------------------------------------------------" << endl;
-        */
-
-        cout << endl;
+        sort(phonePairs.begin(), phonePairs.end(), 
+            [](pair <Person, PhoneNumber> p1, pair <Person, PhoneNumber> p2)
+            {return p1.first < p2.first; });
+        // я так понимаю расписывать отдельно сортирвки по фамилии и, если совпадут, по имени и т.д. смысла нет
+        // судя по всему ф-я sort прекрасно справляется с этим сама
     }
-    
     
     void SortByPhone()
     {
-        sort(phonePairs.begin(), phonePairs.end());
-        /*
-        cout << "Before sorting: " << endl;
-        for (const auto& phonePair : phonePairs)
-        {
-            cout << phonePair.first << "   " << phonePair.second << endl;
-        }
-        cout << endl;
-        sort(phonePairs.begin(), phonePairs.end());
-        cout << "After sorting: " << endl;
-        for (const auto& phonePair : phonePairs)
-        {
-            cout << phonePair.first << "   " << phonePair.second << endl;
-        }
-        cout << "--------------------------------------------------------------" << endl;
-        */
-        cout << endl;
+        sort(phonePairs.begin(), phonePairs.end(),
+            [](pair <Person, PhoneNumber> p1, pair <Person, PhoneNumber> p2)
+            {return p1.second < p2.second; });
     }
 
     tuple < string, PhoneNumber> GetPhoneNumber(const string& searchSurname)
     {
-        PhoneNumber foundPair; // если найдем человека, то номер на время поместим его сюда
+        PhoneNumber foundPair; // если найдем человека, то номер на время поместим сюда
         int pairCount = 0;
         for (const auto& phonePair : phonePairs)
         {
@@ -228,7 +199,6 @@ public:
             return { "found more than 1", foundPair };
     }
     
-    
     void ChangePhoneNumber(const Person& person, const PhoneNumber& number)
     {
         for (auto& phonePair : phonePairs)
@@ -239,82 +209,47 @@ public:
             }
         }
     }
-
-
 };
 
 int main()
 {
-    // Task 1 ============================================================================
-    {
-        cout << "Task 1 ======================================================================" << endl;
-        Person person1 = { "Name", "Surname"};
-        cout << person1 << endl;
-        Person person2 = { "Name", "Surname", "Patronym" };
-        cout << person2 << endl;
-        if (person1 == person2)
-            cout << "Works" << endl;
-        cout << (person1 < person2) << endl;
-        cout << endl;
-    }
+    cout << "Task 3 ======================================================================" << endl;
 
-    // Task 2 ============================================================================
-    {
-        cout << "Task 2 ======================================================================" << endl;
-        PhoneNumber num1 = { 7, 123, "456-78-90", 77};
-        cout << num1 << endl;
-        PhoneNumber num2 = { 7, 123, "456-78-89"};
-        cout << num2 << endl;
-        if (num1 < num2)
-            cout << "num1 goes BEFOR num2" << endl;
+    ifstream file("PhoneBook.txt"); // путь к файлу PhoneBook.txt
+    PhoneBook book(file);
+    cout << book;
+
+    cout << endl << "------SortByPhone-------" << endl;
+    book.SortByPhone();
+    cout << book;
+
+    cout << endl << "------SortByName--------" << endl;
+    book.SortByName();
+    cout << book;
+
+    cout << endl << "-----GetPhoneNumber-----" << endl;
+    // лямбда функция, которая принимает фамилию и выводит номер телефона этого	человека, либо строку с ошибкой
+    auto print_phone_number = [&book](const string& surname) {
+        cout << surname << "\t";
+        auto answer = book.GetPhoneNumber(surname);
+        if (get<0>(answer).empty())
+            cout << get<1>(answer);
         else
-            cout << "num1 goes AFTER num2" << endl;
-        cout << (num1 < num2) << endl;
+            cout << get<0>(answer);
         cout << endl;
-    }
+    };
 
-    // Task 3 ============================================================================
-    {
-        cout << "Task 3 ======================================================================" << endl;
-        
-        ifstream file("PhoneBook.txt"); // путь к файлу PhoneBook.txt
-        PhoneBook book(file);
-        cout << book;
+    // вызовы лямбды
+    print_phone_number("Ivanov");
+    print_phone_number("Petrov");
 
-        cout << "------SortByPhone-------" << endl;
-        book.SortByPhone();
-        cout << book;
+    cout << endl << "----ChangePhoneNumber----" << endl;
+    book.ChangePhoneNumber(Person{ "Kotov", "Vasilii", "Eliseevich" }, PhoneNumber{ 7, 123, "15344458", nullopt });
+    book.ChangePhoneNumber(Person{ "Mironova", "Margarita", "Vladimirovna" }, PhoneNumber{ 16, 465, "9155448", 13 });
+    cout << book;
 
-        cout << "------SortByName--------" << endl;
-        book.SortByName();
-        cout << book;
-
-        cout << "-----GetPhoneNumber-----" << endl;
-        // лямбда функция, которая принимает фамилию и выводит номер телефона этого	человека, либо строку с ошибкой
-        auto print_phone_number = [&book](const string& surname) {
-            cout << surname << "\t";
-            auto answer = book.GetPhoneNumber(surname);
-            if (get<0>(answer).empty())
-                cout << get<1>(answer);
-            else
-                cout << get<0>(answer);
-            cout << endl;
-        };
-
-        // вызовы лямбды
-        print_phone_number("Ivanov");
-        print_phone_number("Petrov");
-
-        cout << "----ChangePhoneNumber----" << endl;
-        book.ChangePhoneNumber(Person{ "Kotov", "Vasilii", "Eliseevich" }, PhoneNumber{ 7, 123, "15344458", nullopt });
-        book.ChangePhoneNumber(Person{ "Mironova", "Margarita", "Vladimirovna" }, PhoneNumber{ 16, 465, "9155448", 13 });
-        cout << book;
-        
-
-        cout << endl;
-    }
-
-
+    cout << endl;
+    
     return 0;
 }
 
