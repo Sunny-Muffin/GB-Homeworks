@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package StudentsDB;
+
+message FullName
+{
+	string name = 1;
+	string surname = 2;
+	optional string patronym = 3; 
+}
+
+message Student
+{
+	FullName fullName = 1;
+	repeated int32 grades = 2; 
+	float avgGrade = 3;
+}
+
+message StudentsGroup
+{
+	repeated Student students = 1;
+}
